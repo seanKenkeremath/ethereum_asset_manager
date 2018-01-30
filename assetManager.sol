@@ -19,70 +19,84 @@ limitations under the License.
 */
 
 contract AssetManager {
+
+    struct Asset {
+        address owner;
+        string name;
+        uint id;
+    }
     
-    mapping (address => uint[]) private assets;
-    mapping (uint => address) private owners;
-    mapping (uint => string) private assetNames;
+    mapping (address => Asset[]) private assetsByOwner;
+    mapping (uint => Asset) private assets;
+    
     uint private assetIdCounter;
 
     function addAsset(string name) public {
         assetIdCounter++;
-        assets[msg.sender].push(assetIdCounter);
-        owners[assetIdCounter] = msg.sender;
-        assetNames[assetIdCounter] = name;
+        
+        Asset memory newAsset;
+        newAsset.id = assetIdCounter;
+        newAsset.name = name;
+        newAsset.owner = msg.sender;
+        
+        assetsByOwner[msg.sender].push(newAsset);
+        assets[newAsset.id] = newAsset;
     }
     
-    function getAssets(address ownerAddress) public constant returns (uint[]) {
-        return assets[ownerAddress];
-    }
-    
-    function getOwner(uint assetId) public constant returns (address) {
-        return owners[assetId];
+    function getAssetsById(address ownerAddress) public constant returns (uint[]) {
+        uint[] memory assetIds = new uint[](assetsByOwner[ownerAddress].length);
+        for (uint i = 0; i<assetsByOwner[ownerAddress].length; i++){
+            assetIds[i] = assetsByOwner[ownerAddress][i].id;
+        }
+        return assetIds;
     }
     
     function getAssetName(uint assetId) public constant returns (string) {
-        return assetNames[assetId];
+        return assets[assetId].name;
+    }
+    
+    function getAssetOwner(uint assetId) public constant returns (address) {
+        return assets[assetId].owner;
     }
     
     function transferOwnership(uint assetId, address newOwner) public {
-        if (owners[assetId] != msg.sender) {
+        if (assets[assetId].owner != msg.sender) {
             return;
         }
         uint indexToRemove = 0;
-        for (uint i = 0; i<assets[msg.sender].length; i++){
-            if (assets[msg.sender][i] == assetId) {
+        for (uint i = 0; i<assetsByOwner[msg.sender].length; i++){
+            if (assetsByOwner[msg.sender][i].id == assetId) {
                 indexToRemove = i;
             }
         }
-        owners[assetId] = newOwner;
-        assets[newOwner].push(assetId);
+        assets[assetId].owner = newOwner;
+        assetsByOwner[newOwner].push(assets[assetId]);
         
-        assets[msg.sender][indexToRemove] = assets[msg.sender][assets[msg.sender].length-1];
-        assets[msg.sender].length = assets[msg.sender].length - 1;
+        assetsByOwner[msg.sender][indexToRemove] = assetsByOwner[msg.sender][assetsByOwner[msg.sender].length-1];
+        assetsByOwner[msg.sender].length = assetsByOwner[msg.sender].length - 1;
     }
     
     function changeAssetName(uint assetId, string newName) public {
-        if (owners[assetId] != msg.sender) {
+        if (assets[assetId].owner != msg.sender) {
             return;
         }
-        assetNames[assetId] = newName;
+        assets[assetId].name = newName;
     }
     
     function removeAsset(uint assetId) public {
-        if (owners[assetId] != msg.sender) {
+        if (assets[assetId].owner != msg.sender) {
             return;
         }
         
         uint indexToRemove = 0;
-        for (uint i = 0; i<assets[msg.sender].length; i++){
-            if (assets[msg.sender][i] == assetId) {
+        for (uint i = 0; i<assetsByOwner[msg.sender].length; i++){
+            if (assetsByOwner[msg.sender][i].id == assetId) {
                 indexToRemove = i;
             }
         }
         
-        assets[msg.sender][indexToRemove] = assets[msg.sender][assets[msg.sender].length-1];
-        assets[msg.sender].length = assets[msg.sender].length - 1;
-        owners[assetId] = 0;
-        //Not removing the name
+        assetsByOwner[msg.sender][indexToRemove] = assetsByOwner[msg.sender][assetsByOwner[msg.sender].length-1];
+        assetsByOwner[msg.sender].length = assetsByOwner[msg.sender].length - 1;
+        delete assets[assetId];
     }
 }
